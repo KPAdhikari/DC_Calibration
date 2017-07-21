@@ -52,6 +52,7 @@ import static org.jlab.dc_calibration.domain.Constants.iSecMax;
 import static org.jlab.dc_calibration.domain.Constants.iSecMin;
 import static org.jlab.dc_calibration.domain.Constants.nFitPars;
 import static org.jlab.dc_calibration.domain.Constants.nThBinsVz2;
+import static org.jlab.dc_calibration.domain.Constants.outFileForFitPars;
 import static org.jlab.dc_calibration.domain.Constants.tMin;
 import static org.jlab.dc_calibration.domain.Constants.thEdgeVzH2;
 import static org.jlab.dc_calibration.domain.Constants.thEdgeVzL2;
@@ -152,7 +153,8 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
     private EvioDataChain reader;
     private HipoDataSource readerH;
     private OrderOfAction OAInstance;
-    private DCTabbedPane dcTabbedPane;
+    private DCTabbedPane dcTabbedPane;   
+    
 
     // MK testing
 //    private NTuple nTupletimeVtrkDocaVZ;
@@ -184,7 +186,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
         createVerticalLinesForDMax();
         createHists();
     }
-
+    
     //I didn't know how to make a vertical line out of the function classes such as Func1D.
     private void createVerticalLinesForDMax() {
         double rad2deg = 180.0 / Math.PI;
@@ -539,13 +541,17 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
         for (String str : fileArray) { //Now reading multiple hipo files.
             System.out.println("Ready to Open & read " + str);
             readerH.open(str);
-
+            //System.out.println("Opened " + str + " and ready to read data.");
+            
             while (readerH.hasEvent()) {// && icounter < 100
 
                 icounter++;
                 if (icounter % 2000 == 0) {
                     System.out.println("Processed " + icounter + " events.");
                 }
+                
+//                System.out.println("Debug0: Processed " + icounter + " events.");
+                
                 //EvioDataEvent event = reader.getNextEvent();
                 DataEvent event = readerH.getNextEvent();
 //                  //got 'bank not found' message for each event.
@@ -558,16 +564,28 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
                     counter++;
                 }
 
+//                System.out.println("Debug1: Processed " + icounter + " events.");
+
                 if (event.hasBank("TimeBasedTrkg::TBHits") && event.hasBank("TimeBasedTrkg::TBSegments")//) {// && event.hasBank("TimeBasedTrkg::TBSegmentTrajectory") &&
                         && event.hasBank("TimeBasedTrkg::TBTracks")) {
 
+//                    System.out.println("Debug2: Processed " + icounter + " events.");
+
+                    
                     processTBTracksAndCrosses(event); //Identify corresponding segments (4/13/17)
+                    
+//                    System.out.println("Debug3: Processed " + icounter + " events.");
 
                     ProcessTBTracks tbTracks = new ProcessTBTracks(event);
+                    
+//                    System.out.println("Debug4: Processed " + icounter + " events.");
+                    
                     if (tbTracks.getNTrks() > 0) {
                         //processTBhits(event);
                         //processTBSegments(event);
 
+//                        System.out.println("Debug5: Processed " + icounter + " events.");
+                        
                         //===========
                         bnkTrks = (DataBank) event.getBank("TimeBasedTrkg::TBTracks");
                         for (int j = 0; j < bnkTrks.rows(); j++) {
@@ -608,6 +626,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
         boolean hasCrosses = event.hasBank("TimeBasedTrkg::TBCrosses");
         boolean hasSegments = event.hasBank("TimeBasedTrkg::TBSegments");
         DataBank bnkTracks, bnkCrosses, bnkSegments;
+//        System.out.println("Debug21: has Tracks, Crosses, Segments: " + hasTracks + ", " + hasCrosses + ", " + hasSegments);
         if (hasTracks) {
             bnkTracks = (DataBank) event.getBank("TimeBasedTrkg::TBTracks");
             nTracks = bnkTracks.rows();
@@ -646,11 +665,14 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
                     }
                 }
             }
-
+            
+            //System.out.println("Debug22: Inside TimeToDistanceFitter.java .."); 
             processTBhits(event);
+//            System.out.println("Debug23: Inside TimeToDistanceFitter.java .."); 
             if (hasSegments) {
                 processTBSegments(segmentIDs, trkChi2, event);
             }
+//            System.out.println("Debug24: Inside TimeToDistanceFitter.java .."); 
         }
     }
 
@@ -706,6 +728,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
         for (int j = 0; j < bnkSegs.rows(); j++) {
             int superlayer = bnkSegs.getInt("superlayer", j);
             int sector = bnkSegs.getInt("sector", j);
+            if(!(sector==2)) continue; //7/12/17
             //System.out.println("superlayer sector" + superlayer + " " + sector);
 
             //Check if any of these segments matches with those associated with the available tracks
@@ -731,6 +754,8 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
                 continue;
             }
 
+            //System.out.println("Debug231: Inside TimeToDistanceFitter.java ..");  
+            
             //int [][][] segmentIDs; //[nTrks][3][2] //3 for crosses per track, 2 for segms per cross. //Now global
             //double [] trkChi2;//Size equals the # of tracks for the event //Now global
             //int nTracks = 0; //Now global
@@ -770,6 +795,9 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
                 }
             }
             gSegmThBinMapTBSegments.put(bnkSegs.getInt("id", j), thBn);
+            
+//System.out.println("Debug232: Inside TimeToDistanceFitter.java ..");  
+
             double thTmp1 = thDeg;
             double thTmp2 = thDeg - 30.0;
             double docaMax = 2.0 * wpdist[superlayer - 1];
@@ -782,12 +810,11 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
                     Double gTimeRes = timeResMapTBHits.get(new Integer(bnkSegs.getInt("Hit" + h + "_ID", j)));
                     Double gBfield = BMapTBHits.get(new Integer(bnkSegs.getInt("Hit" + h + "_ID", j)));
                     
-
                     if (gTime == null || gTrkDoca == null && gBfield == null) {
                         continue;
                     }
                     double gCalcDocaNorm = gCalcDoca/docaMax;
-
+ 
                     //============ For Temp purpose
                     boolean inBfieldBin = true; //For SL=3 & 4, using only data that correspond to Bfield = (0.4,0.6)
                     if ((superlayer == 3 || superlayer == 4) && (gBfield < 0.4 || gBfield > 0.6)) {
@@ -799,13 +826,20 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
 //                    if (bnkSegs.getInt("Hit" + h + "_ID", j) > -1 && thBn > -1 && thBn < nTh) {
 //                        h1timeSlTh.get(new Coordinate(superlayer - 1, thBn)).fill(gTime);
 //                    }
-                    
+
+//System.out.println("Debug233: Inside TimeToDistanceFitter.java: gCalcDocaNorm, calcDocaCut: " + gCalcDocaNorm + ", " + calcDocaCut); 
+
                     if (gCalcDocaNorm < calcDocaCut) { //1.0) { //0.85) { //kp: 6/7/17
+                        //System.out.println("Debug: Hit?_ID: " + bnkSegs.getInt("Hit" + h + "_ID", j));
+                        //System.out.println("Debug: thBnVz, inBfieldBin: " + thBnVz + " + " + inBfieldBin);
                         if (bnkSegs.getInt("Hit" + h + "_ID", j) > -1 && thBnVz > -1 && thBnVz < nThBinsVz && inBfieldBin == true) {// && thBnVz < nThBinsVz
                             double docaNorm = gTrkDoca / docaMax;
+                            //System.out.println("gTrkDoca, docaMax, docaNorm = " + gTrkDoca + ", " + docaMax + ", "+ docaNorm);
+                            //System.out.format("sector=%d, superlayer=%d\n", sector, superlayer); //sector = 2;
                             h2timeVtrkDocaVZ.get(new Coordinate(sector - 1, superlayer - 1, thBnVz)).fill(Math.abs(docaNorm), gTime);
                             h2timeVtrkDoca.get(new Coordinate(sector - 1, superlayer - 1, thBnVz)).fill(Math.abs(gTrkDoca), gTime);
                             h2timeVcalcDoca.get(new Coordinate(sector - 1, superlayer - 1, thBnVz)).fill(Math.abs(gCalcDoca), gTime);
+//System.out.println("Debug234: Inside TimeToDistanceFitter.java ..");                            
                             if (Math.abs(thDeg) < 30.0) {
                                 h1timeSlTh.get(new Coordinate(sector - 1, superlayer - 1, thBnVz)).fill(gTime);
                                 //Following two for all angle-bins combined (but for individual superlayers in each sector)
@@ -815,6 +849,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
                                 h1timeRes.get(new Coordinate(sector - 1, superlayer - 1, thBnVz)).fill(gTimeRes);
                                 h2timeResVsTrkDoca.get(new Coordinate(sector - 1, superlayer - 1, thBnVz)).fill(Math.abs(gTrkDoca), gTimeRes);
                                 h2ResidualVsTrkDoca.fill(gTrkDoca, gTimeRes);
+//System.out.println("Debug235: Inside TimeToDistanceFitter.java ..");                                
                                 if (gTimeRes > 0.0) {
                                     h1trkDoca4PosRes.fill(gTrkDoca);
                                 } else {
@@ -822,6 +857,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
                                 }
                             }
                         }
+//System.out.println("Debug236: Inside TimeToDistanceFitter.java ..");                         
 
                         if (bnkSegs.getInt("Hit" + h + "_ID", j) > -1 && thBnVz2 > -1 && thBnVz2 < nThBinsVz2) {
                             double docaNorm = gTrkDoca / docaMax;
@@ -830,6 +866,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
                             //System.out.println("  la la ..");
                         }
                     }
+                     
                     // here I will fill a test histogram of superlay6 and thetabin6
                     if (bnkSegs.getInt("Hit" + h + "_ID", j) > -1 && thBnVz == 5 && superlayer == 6) {
                         double docaNorm = gTrkDoca / docaMax;
@@ -880,16 +917,18 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
 
     protected void runFitterNew(JTextArea textArea, int Sec, int SL, int xMeanErrorType,
             double xNormLow, double xNormHigh, boolean[] fixIt, boolean checkBoxFixAll,
-            double[][] pLow, double[][] pInit, double[][] pHigh, double [][] pSteps, boolean [] selectedAngleBins) throws IOException {
+            double[][] pLow, double[][] pInit, double[][] pHigh, double [][] pSteps, 
+            boolean [] selectedAngleBins) throws IOException {
 
         System.out.println("Inside runFitterNew(..) ");
         int iSec = Sec - 1, iSL = SL - 1;
-        boolean append_to_file = false;
+        
+        boolean append_to_file = true;//First time the same file will be opened from FitControlUI (here it will be appended & closed)
         FileOutputWriter file = null;
         String str = " ", pStr = " ";
         try {
-            file = new FileOutputWriter("src/files/fitParameters.txt", append_to_file);
-            file.Write("#Sec  SL  v0  deltanm  tMax  distbeta  delta_bfield_coefficient  b1  b2  b3  b4");
+            file = new FileOutputWriter(outFileForFitPars, append_to_file);
+            //file.Write("#Sec  SL  v0  deltanm  tMax  distbeta  delta_bfield_coefficient  b1  b2  b3  b4");
         } catch (IOException ex) {
             Logger.getLogger(TimeToDistanceFitter.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -909,7 +948,8 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
             mapOfFitFunctions.put(new Coordinate(iSec, iSL),
                     //new DCFitFunction(h2timeVtrkDocaVZ, iSec, iSL, isLinearFit));
                     new DCFitFunction(h2timeVtrkDoca, iSec, iSL, xMeanErrorType, xNormLow, xNormHigh, isLinearFit, selectedAngleBins));//Using map of H2F
-        } else if (histTypeToUseInFitting > 1) {
+        } 
+        else if (histTypeToUseInFitting > 1) {
             mapOfFitFunctions.put(new Coordinate(iSec, iSL),
                     new DCFitFunction(h3BTXmap, iSec, iSL, xMeanErrorType, xNormLow, xNormHigh, isLinearFit, selectedAngleBins, true)); //Using map of SimpleH3D
         }

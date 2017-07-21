@@ -89,6 +89,6 @@ public final class Constants {
         protected static double bFieldMin = 0.0, bFieldMax = 1.5;
         protected static final int binForTestPlotTemp = bFieldBins/2; //for temp purpose
         protected static final double calcDocaCut = 5.0; //1.0 //0.85
-        
+        protected static final String outFileForFitPars = "src/files/fitParameters.txt";
 	private Constants() {}
 }
