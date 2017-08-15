@@ -87,12 +87,18 @@ public final class Constants {
 //                              = 2;   // for using XY-proj from h3BTXmap  
 //                              = 3;   // for using B-field also from h3BTXmap  
         
-        protected static final int histTypeToUseInFitting = 2;//1;//2; 
-        //make the following controllable from the GUI (as we may have different Max for B-field depending on expt.
-        protected static final int bFieldBins = 20;
-        protected static double bFieldMin = 0.0, bFieldMax = 1.5;
-        protected static final int binForTestPlotTemp = bFieldBins/2; //for temp purpose
+        protected static final int histTypeToUseInFitting = 1;//2;//1;//2; 
+
         protected static final double calcDocaCut = 5.0; //1.0 //0.85
         protected static final String outFileForFitPars = "src/files/fitParameters.txt";
+
+        
+        //================ Binning parameters various histograms ==================
+        //make the following controllable from the GUI (as we may have different Max for B-field depending on expt.
+        protected static final int nBFieldBins = 20;
+        protected static final double bFieldMin = 0.0, bFieldMax = 1.5;
+        protected static final int binForTestPlotTemp = nBFieldBins/2; //for temp purpose        
+        protected static final int nLocalAngleBins = 160;
+        protected static final double localAngleMin = -80.0, localAngleMax = 80.0;
 	private Constants() {}
 }

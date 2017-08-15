@@ -42,7 +42,6 @@ import org.freehep.math.minuit.MnMigrad;
 import org.freehep.math.minuit.MnStrategy;
 import org.freehep.math.minuit.MnUserParameters;
 //import org.jlab.dc_calibration.NTuple.NTuple;
-import static org.jlab.dc_calibration.domain.Constants.bFieldBins;
 import static org.jlab.dc_calibration.domain.Constants.bFieldMax;
 import static org.jlab.dc_calibration.domain.Constants.bFieldMin;
 import static org.jlab.dc_calibration.domain.Constants.binForTestPlotTemp;
@@ -50,6 +49,8 @@ import static org.jlab.dc_calibration.domain.Constants.calcDocaCut;
 import static org.jlab.dc_calibration.domain.Constants.histTypeToUseInFitting;
 import static org.jlab.dc_calibration.domain.Constants.iSecMax;
 import static org.jlab.dc_calibration.domain.Constants.iSecMin;
+import static org.jlab.dc_calibration.domain.Constants.localAngleMax;
+import static org.jlab.dc_calibration.domain.Constants.localAngleMin;
 import static org.jlab.dc_calibration.domain.Constants.nFitPars;
 import static org.jlab.dc_calibration.domain.Constants.nThBinsVz2;
 import static org.jlab.dc_calibration.domain.Constants.outFileForFitPars;
@@ -67,6 +68,8 @@ import org.jlab.io.base.DataEvent;
 import org.jlab.io.base.DataBank;
 import org.jlab.io.evio.EvioDataChain;
 import org.jlab.io.hipo.HipoDataSource;
+import static org.jlab.dc_calibration.domain.Constants.nBFieldBins;
+import static org.jlab.dc_calibration.domain.Constants.nLocalAngleBins;
 
 public class TimeToDistanceFitter implements ActionListener, Runnable {
 
@@ -136,6 +139,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
 
     private H1F h1bField;
     private H1F[] h1bFieldSL = new H1F[nSL];
+    private H1F[] h1LocalAngleSL = new H1F[nSL];
     private H1F h1fitChisqProb, h1fitChi2Trk, h1fitChi2Trk2, h1ndfTrk, h1zVtx;
     private H2F testHist, h2ResidualVsTrkDoca;
     private H1F h1trkDoca4NegRes, h1trkDoca4PosRes;//Temp, 4/27/17
@@ -509,7 +513,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
 
     private void initializeBFieldHistograms() {
         //Overall for SL=3 & 4
-        h1bField = new H1F("Bfield", bFieldBins, bFieldMin, bFieldMax);
+        h1bField = new H1F("Bfield", nBFieldBins, bFieldMin, bFieldMax);
         h1bField.setTitle("B field");
         h1bField.setLineColor(2);
 
@@ -517,10 +521,17 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
         String hName = "", hTitle = "";
         for (int i = 0; i < nSL; i++) {
             String.format(hName, "BfieldSL%d", i + 1);
-            h1bFieldSL[i] = new H1F(hName, 4 * bFieldBins, bFieldMin, bFieldMax);
+            h1bFieldSL[i] = new H1F(hName, 4 * nBFieldBins, bFieldMin, bFieldMax);
             String.format(hTitle, "B field for SL=%d", i + 1);
-            h1bField.setTitle(hTitle);
-            h1bField.setLineColor(2);
+            h1bFieldSL[i].setTitle(hTitle);
+            h1bFieldSL[i].setLineColor(2);
+            
+            
+            String.format(hName, "LocalAngleSL%d", i + 1);
+            h1LocalAngleSL[i] = new H1F(hName, nLocalAngleBins, localAngleMin, localAngleMax);
+            String.format(hTitle, "Local angle (alpha) for SL=%d", i + 1);
+            h1LocalAngleSL[i].setTitle(hTitle);
+            h1LocalAngleSL[i].setLineColor(2);            
         }
 
     }
@@ -554,6 +565,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
                 
                 //EvioDataEvent event = reader.getNextEvent();
                 DataEvent event = readerH.getNextEvent();
+                if(event == null) continue;
 //                  //got 'bank not found' message for each event.
 //			ProcessTBSegmentTrajectory tbSegmentTrajectory = new ProcessTBSegmentTrajectory(event);
 //			if (tbSegmentTrajectory.getNsegs() > 0) {
@@ -627,6 +639,8 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
         boolean hasSegments = event.hasBank("TimeBasedTrkg::TBSegments");
         DataBank bnkTracks, bnkCrosses, bnkSegments;
 //        System.out.println("Debug21: has Tracks, Crosses, Segments: " + hasTracks + ", " + hasCrosses + ", " + hasSegments);
+
+        hasTracks = true; //8/2/17  (Temp. to make it work for Cosmic data where there are no tracks, I need to control this from GUI)
         if (hasTracks) {
             bnkTracks = (DataBank) event.getBank("TimeBasedTrkg::TBTracks");
             nTracks = bnkTracks.rows();
@@ -770,6 +784,8 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
             h1fitChisqProb.fill((double) bnkSegs.getFloat("fitChisqProb", j));
 
             double thDeg = rad2deg * Math.atan2((double) bnkSegs.getFloat("fitSlope", j), 1.0);
+            h1LocalAngleSL[superlayer -1].fill(thDeg);
+            
             //System.out.println("superlayer thDeg " + superlayer + " " + thDeg);
             h1ThSL.get(new Coordinate(bnkSegs.getInt("superlayer", j) - 1)).fill(thDeg);
             for (int h = 1; h <= 12; h++) {
@@ -1187,6 +1203,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
             canvas4.draw(h1);
             canvas4.getPad(iPad).setTitle(Title);
             canvas4.setPadTitlesX("residual (cm)");//"Residual vs trkDoca"
+            canvas4.setPadTitlesY(" ");//"Residual vs trkDoca"
         }
         //canvas4.save(String.format("src/images/residualSec%d.png", i + 1));
         tabbedPane.add(canvas4, "residual (cm)");
@@ -1236,6 +1253,7 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
             canvas6.draw(h1);
             canvas6.getPad(iPad).setTitle(Title);
             canvas6.setPadTitlesX("residual (cm)");//"Residual vs trkDoca"
+            canvas6.setPadTitlesY(" ");//"Residual vs trkDoca"
         }
         //canvas4.save(String.format("src/images/residualSec%d.png", i + 1));
         tabbedPane.add(canvas6, "residual (cm) (In ThBins)");
@@ -1303,11 +1321,35 @@ public class TimeToDistanceFitter implements ActionListener, Runnable {
         frame.setLocationRelativeTo(fitControlFrame);//centered w.r.t fitControlUI frame
         frame.add(tabbedPane);//(canvas);
         frame.setVisible(true);
+    } 
+    
+    public void showLocalAngleDistributions(JFrame fitControlFrame, int Sec, int SL, double xNormLow, double xNormHigh) {
+        int iSec = Sec - 1, iSL = SL - 1;        
+        String Title = "";
+
+        JTabbedPane tabbedPane = new JTabbedPane();
+        EmbeddedCanvas canvas = new EmbeddedCanvas();
+        canvas.setSize(3 * 400, 2 * 400);
+        canvas.divide(3, 2);
+        for (int i = 0; i < nSL; i++) {
+            canvas.cd(i);
+            canvas.draw(h1LocalAngleSL[i]);
+        }
+          
+        tabbedPane.add(canvas, "Local Angle (alpha) (In Degrees)"); 
+        
+        JFrame frame = new JFrame();
+        Dimension screensize = Toolkit.getDefaultToolkit().getScreenSize();
+        frame.setSize((int) (screensize.getWidth() * .9), (int) (screensize.getHeight() * .9));
+        //frame.setLocationRelativeTo(null); //Centers on the default screen
+        //Following line makes the canvas or frame open in the same screen where the fitCtrolUI is.
+        frame.setLocationRelativeTo(fitControlFrame);//centered w.r.t fitControlUI frame
+        frame.add(tabbedPane);//(canvas);
+        frame.setVisible(true); 
     }    
     
     public void showBFieldDistributions(JFrame fitControlFrame, int Sec, int SL, double xNormLow, double xNormHigh) {
-        int iSec = Sec - 1, iSL = SL - 1;
-        int nSkippedThBins = 4; //Skipping marginal 4 bins from both sides
+        int iSec = Sec - 1, iSL = SL - 1;        
         String Title = "";
 
         JTabbedPane tabbedPane = new JTabbedPane();
